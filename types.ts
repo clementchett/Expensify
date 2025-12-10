@@ -16,5 +16,7 @@ export interface Expense {
 
 export interface MonthlyData {
   month: string;
-  total: number;
+  expense: number;
+  income: number;
+  balance: number;
 }

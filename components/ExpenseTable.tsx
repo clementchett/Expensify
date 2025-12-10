@@ -6,12 +6,13 @@ import { Edit2, Trash2, Tag, Layers, List } from 'lucide-react';
 
 interface ExpenseTableProps {
   expenses: Expense[];
+  incomes: number[];
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
   highlightedMonth: number | null;
 }
 
-export const ExpenseTable: React.FC<ExpenseTableProps> = ({ expenses, onEdit, onDelete, highlightedMonth }) => {
+export const ExpenseTable: React.FC<ExpenseTableProps> = ({ expenses, incomes, onEdit, onDelete, highlightedMonth }) => {
   const [isGrouped, setIsGrouped] = useState(false);
 
   // Group expenses by category
@@ -45,6 +46,7 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({ expenses, onEdit, on
   };
 
   const grandTotals = getTotals(expenses);
+  const balances = incomes.map((inc, idx) => inc - grandTotals[idx]);
 
   const renderExpenseRow = (expense: Expense) => {
     const monthlyValues = calculateMonthlyDistribution(expense);
@@ -195,21 +197,51 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({ expenses, onEdit, on
                 expenses.map(renderExpenseRow)
             )}
             
-            {/* Grand Totals Row */}
+            {/* Grand Totals, Income, and Balance Rows */}
             {expenses.length > 0 && (
-                <tr className="bg-slate-100 dark:bg-slate-700/30 font-bold border-t-2 border-slate-200 dark:border-slate-700">
-                <td className="px-6 py-4 text-sm text-slate-900 dark:text-white sticky left-0 bg-slate-100 dark:bg-slate-800 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">
-                    Grand Total
-                </td>
-                {!isGrouped && <td className="px-4 py-4"></td>}
-                <td className="px-4 py-4"></td>
-                {grandTotals.map((total, idx) => (
-                    <td key={idx} className={`px-2 py-4 text-right text-sm text-slate-900 dark:text-white transition-colors ${highlightedMonth === idx ? 'bg-indigo-100/50 dark:bg-indigo-900/40' : ''}`}>
-                    {total > 0 ? total.toLocaleString() : '-'}
+              <>
+                <tr className="bg-slate-100 dark:bg-slate-800 font-bold border-t-2 border-slate-300 dark:border-slate-600">
+                    <td className="px-6 py-4 text-sm text-slate-900 dark:text-white sticky left-0 bg-slate-100 dark:bg-slate-800 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">
+                        Total Expenses
                     </td>
-                ))}
-                <td className="sticky right-0 bg-slate-100 dark:bg-slate-800 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.3)]"></td>
+                    {!isGrouped && <td className="px-4 py-4"></td>}
+                    <td className="px-4 py-4"></td>
+                    {grandTotals.map((total, idx) => (
+                        <td key={idx} className={`px-2 py-4 text-right text-sm text-red-600 dark:text-red-400 ${highlightedMonth === idx ? 'bg-indigo-100/50 dark:bg-indigo-900/40' : ''}`}>
+                        {total > 0 ? total.toLocaleString() : '-'}
+                        </td>
+                    ))}
+                    <td className="sticky right-0 bg-slate-100 dark:bg-slate-800 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.3)]"></td>
                 </tr>
+
+                 <tr className="bg-slate-50 dark:bg-slate-800/50 font-medium border-t border-slate-200 dark:border-slate-700">
+                    <td className="px-6 py-3 text-sm text-emerald-700 dark:text-emerald-400 sticky left-0 bg-slate-50 dark:bg-slate-800 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">
+                        Total Income
+                    </td>
+                    {!isGrouped && <td className="px-4 py-3"></td>}
+                    <td className="px-4 py-3"></td>
+                    {incomes.map((income, idx) => (
+                        <td key={idx} className={`px-2 py-3 text-right text-sm text-emerald-700 dark:text-emerald-400 ${highlightedMonth === idx ? 'bg-indigo-100/50 dark:bg-indigo-900/40' : ''}`}>
+                        {income > 0 ? income.toLocaleString() : '-'}
+                        </td>
+                    ))}
+                    <td className="sticky right-0 bg-slate-50 dark:bg-slate-800 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.3)]"></td>
+                </tr>
+
+                 <tr className="bg-white dark:bg-slate-900 font-bold border-t border-slate-200 dark:border-slate-700">
+                    <td className="px-6 py-4 text-sm text-slate-900 dark:text-white sticky left-0 bg-white dark:bg-slate-900 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">
+                        Net Balance
+                    </td>
+                    {!isGrouped && <td className="px-4 py-4"></td>}
+                    <td className="px-4 py-4"></td>
+                    {balances.map((bal, idx) => (
+                        <td key={idx} className={`px-2 py-4 text-right text-sm ${bal < 0 ? 'text-red-500' : 'text-blue-600 dark:text-blue-400'} ${highlightedMonth === idx ? 'bg-indigo-100/50 dark:bg-indigo-900/40' : ''}`}>
+                        {bal !== 0 ? bal.toLocaleString() : '-'}
+                        </td>
+                    ))}
+                    <td className="sticky right-0 bg-white dark:bg-slate-900 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.3)]"></td>
+                </tr>
+              </>
             )}
             </tbody>
         </table>

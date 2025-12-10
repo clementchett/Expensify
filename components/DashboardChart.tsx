@@ -1,5 +1,5 @@
 import React from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, ReferenceLine, Label } from 'recharts';
+import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, Legend, Area } from 'recharts';
 import { MonthlyData } from '../types';
 
 interface DashboardChartProps {
@@ -7,22 +7,21 @@ interface DashboardChartProps {
   isDarkMode: boolean;
   onMonthClick: (index: number) => void;
   selectedMonthIndex: number | null;
-  monthlyIncome: number;
+  monthlyIncome?: number; // Kept for backward compatibility if needed, though we use data.income now
 }
 
-export const DashboardChart: React.FC<DashboardChartProps> = ({ data, isDarkMode, onMonthClick, selectedMonthIndex, monthlyIncome }) => {
+export const DashboardChart: React.FC<DashboardChartProps> = ({ data, isDarkMode, onMonthClick, selectedMonthIndex }) => {
   const gridColor = isDarkMode ? '#334155' : '#e2e8f0';
   const textColor = isDarkMode ? '#94a3b8' : '#64748b';
   const tooltipBg = isDarkMode ? '#1e293b' : '#fff';
   const tooltipText = isDarkMode ? '#f1f5f9' : '#0f172a';
-  const incomeLineColor = isDarkMode ? '#34d399' : '#059669'; // Emerald-400 / Emerald-600
-
+  
   return (
-    <div className="h-64 w-full">
+    <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart 
+        <ComposedChart 
           data={data} 
-          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
           onClick={(data) => {
             if (data && data.activeTooltipIndex !== undefined) {
               onMonthClick(data.activeTooltipIndex);
@@ -30,6 +29,12 @@ export const DashboardChart: React.FC<DashboardChartProps> = ({ data, isDarkMode
           }}
           className="cursor-pointer"
         >
+          <defs>
+             <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+             </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
           <XAxis 
             dataKey="month" 
@@ -42,7 +47,7 @@ export const DashboardChart: React.FC<DashboardChartProps> = ({ data, isDarkMode
             axisLine={false} 
             tickLine={false} 
             tick={{ fill: textColor, fontSize: 12 }}
-            tickFormatter={(value) => `₹${value}`}
+            tickFormatter={(value) => `₹${value >= 1000 ? (value/1000).toFixed(0) + 'k' : value}`}
           />
           <Tooltip 
             cursor={{ fill: isDarkMode ? '#334155' : '#f1f5f9' }}
@@ -54,34 +59,40 @@ export const DashboardChart: React.FC<DashboardChartProps> = ({ data, isDarkMode
               color: tooltipText
             }}
             itemStyle={{ color: tooltipText }}
-            formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Expenses']}
+            formatter={(value: number, name: string) => {
+                const label = name === 'income' ? 'Income' : name === 'expense' ? 'Expenses' : name;
+                return [`₹${value.toLocaleString()}`, label];
+            }}
           />
-          {monthlyIncome > 0 && (
-            <ReferenceLine y={monthlyIncome} stroke={incomeLineColor} strokeDasharray="3 3" strokeWidth={2}>
-              <Label 
-                value="Income" 
-                position="insideTopRight" 
-                fill={incomeLineColor} 
-                fontSize={12} 
-                fontWeight={500}
-                offset={10}
-              />
-            </ReferenceLine>
-          )}
+          <Legend iconType="circle" />
+          
+          {/* Income Area/Line */}
+          <Area 
+            type="monotone" 
+            dataKey="income" 
+            name="Income"
+            stroke="#10b981" 
+            fillOpacity={1} 
+            fill="url(#colorIncome)" 
+            strokeWidth={2}
+          />
+
+          {/* Expense Bar */}
           <Bar 
-            dataKey="total" 
+            dataKey="expense" 
+            name="Expenses"
             radius={[4, 4, 0, 0]} 
-            barSize={32}
+            barSize={20}
           >
             {data.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
-                fill={selectedMonthIndex === index ? '#4f46e5' : '#6366f1'} 
+                fill={entry.expense > entry.income ? '#ef4444' : (selectedMonthIndex === index ? '#4f46e5' : '#6366f1')} 
                 fillOpacity={selectedMonthIndex === null || selectedMonthIndex === index ? 1 : 0.6}
               />
             ))}
           </Bar>
-        </BarChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

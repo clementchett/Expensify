@@ -6,13 +6,15 @@ import { ExpenseTable } from './components/ExpenseTable';
 import { ExpenseForm } from './components/ExpenseForm';
 import { DashboardChart } from './components/DashboardChart';
 import { CategoryChart } from './components/CategoryChart';
+import { IncomeModal } from './components/IncomeModal';
 import { calculateMonthlyDistribution, formatCurrency, calculateTotalAnnual } from './services/expenseUtils';
 import { analyzeExpenses } from './services/geminiService';
-import { Plus, Wallet, TrendingUp, Sparkles, Loader2, Moon, Sun, Info, PiggyBank, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, Sparkles, Loader2, Moon, Sun, Info, PiggyBank, ArrowUpCircle, ArrowDownCircle, Edit } from 'lucide-react';
 
 const App: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -27,12 +29,21 @@ const App: React.FC = () => {
     return [];
   });
 
-  // Monthly Income State
-  const [monthlyIncome, setMonthlyIncome] = useState<string>(() => {
+  // Monthly Income State (Array of 12)
+  const [incomes, setIncomes] = useState<number[]>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('monthlyIncome') || '';
+      const savedIncomes = localStorage.getItem('incomes');
+      if (savedIncomes) {
+        return JSON.parse(savedIncomes);
+      }
+      // Migration from old single value
+      const oldSingleIncome = localStorage.getItem('monthlyIncome');
+      if (oldSingleIncome) {
+        const val = parseFloat(oldSingleIncome) || 0;
+        return new Array(12).fill(val);
+      }
     }
-    return '';
+    return new Array(12).fill(0);
   });
 
   const allCategories = useMemo(() => {
@@ -67,10 +78,12 @@ const App: React.FC = () => {
     localStorage.setItem('customCategories', JSON.stringify(customCategories));
   }, [customCategories]);
 
-  // Save monthly income
+  // Save incomes
   useEffect(() => {
-    localStorage.setItem('monthlyIncome', monthlyIncome);
-  }, [monthlyIncome]);
+    localStorage.setItem('incomes', JSON.stringify(incomes));
+    // Remove old key to clean up
+    localStorage.removeItem('monthlyIncome');
+  }, [incomes]);
 
   // Load from LocalStorage and Migrate Data if needed
   useEffect(() => {
@@ -124,6 +137,11 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveIncomes = (newIncomes: number[]) => {
+    setIncomes(newIncomes);
+    setIsIncomeModalOpen(false);
+  };
+
   const handleAIAnalysis = async () => {
     if (expenses.length === 0) return;
     setIsAnalyzing(true);
@@ -143,22 +161,24 @@ const App: React.FC = () => {
 
   // Memoized calculations for dashboard
   const monthlyData: MonthlyData[] = useMemo(() => {
-    const data = new Array(12).fill(0);
+    const expenseData = new Array(12).fill(0);
     expenses.forEach(e => {
       const dist = calculateMonthlyDistribution(e);
-      dist.forEach((amt, idx) => data[idx] += amt);
+      dist.forEach((amt, idx) => expenseData[idx] += amt);
     });
+    
     return SHORT_MONTHS.map((month, idx) => ({
       month,
-      total: data[idx]
+      expense: expenseData[idx],
+      income: incomes[idx],
+      balance: incomes[idx] - expenseData[idx]
     }));
-  }, [expenses]);
+  }, [expenses, incomes]);
 
-  const totalAnnual = useMemo(() => monthlyData.reduce((acc, curr) => acc + curr.total, 0), [monthlyData]);
-  const parsedIncome = parseFloat(monthlyIncome) || 0;
-  const annualIncome = parsedIncome * 12;
-  const annualBalance = annualIncome - totalAnnual;
-  const savingsRate = annualIncome > 0 ? ((annualBalance / annualIncome) * 100) : 0;
+  const totalAnnualExpenses = useMemo(() => monthlyData.reduce((acc, curr) => acc + curr.expense, 0), [monthlyData]);
+  const totalAnnualIncome = useMemo(() => incomes.reduce((acc, curr) => acc + curr, 0), [incomes]);
+  const annualBalance = totalAnnualIncome - totalAnnualExpenses;
+  const savingsRate = totalAnnualIncome > 0 ? ((annualBalance / totalAnnualIncome) * 100) : 0;
 
   // Calculate Category Data
   const categoryData = useMemo(() => {
@@ -217,27 +237,23 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
            {/* Income Input Card */}
            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200 flex flex-col justify-between">
-             <div className="flex items-start justify-between mb-2">
-                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl">
+             <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl">
                   <ArrowUpCircle className="text-emerald-600 dark:text-emerald-400 h-6 w-6" />
                 </div>
-                <span className="text-xs font-medium px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-md">
-                   Annual: {formatCurrency(annualIncome)}
-                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Annual Income</p>
+                   <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalAnnualIncome)}</h3>
+                </div>
              </div>
-             <div>
-               <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Monthly Income</label>
-               <div className="relative">
-                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-medium">₹</span>
-                 <input 
-                   type="number"
-                   value={monthlyIncome}
-                   onChange={(e) => setMonthlyIncome(e.target.value)}
-                   className="w-full pl-8 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-lg font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                   placeholder="0"
-                 />
-               </div>
-             </div>
+             
+             <button 
+               onClick={() => setIsIncomeModalOpen(true)}
+               className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+             >
+               <Edit size={16} />
+               Edit Monthly Income
+             </button>
            </div>
 
           {/* Expenses Card */}
@@ -249,8 +265,8 @@ const App: React.FC = () => {
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Annual Expenses</p>
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalAnnual)}</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Avg. {formatCurrency(totalAnnual/12)} / month</p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalAnnualExpenses)}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Avg. {formatCurrency(totalAnnualExpenses/12)} / month</p>
             </div>
           </div>
           
@@ -267,7 +283,7 @@ const App: React.FC = () => {
                 {annualBalance >= 0 ? '+' : ''}{formatCurrency(annualBalance)}
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                 {parsedIncome > 0 ? `${savingsRate.toFixed(1)}% savings rate` : 'Set income to calculate savings'}
+                 {totalAnnualIncome > 0 ? `${savingsRate.toFixed(1)}% savings rate` : 'Set income to calculate savings'}
               </p>
             </div>
           </div>
@@ -314,7 +330,7 @@ const App: React.FC = () => {
           {/* Monthly Bar Chart */}
           <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200">
             <div className="flex justify-between items-center mb-6">
-               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Monthly Expenditure Overview</h3>
+               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Income vs Expenses</h3>
                {selectedMonthIndex !== null && (
                  <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded flex items-center gap-1">
                    <Info size={12}/> Highlighting {SHORT_MONTHS[selectedMonthIndex]}
@@ -326,10 +342,9 @@ const App: React.FC = () => {
               isDarkMode={isDarkMode} 
               onMonthClick={handleMonthClick}
               selectedMonthIndex={selectedMonthIndex}
-              monthlyIncome={parsedIncome}
             />
             <p className="text-xs text-center text-slate-400 mt-4">
-               {parsedIncome > 0 ? 'Dashed line indicates monthly income limit. ' : ''}
+               Green area represents Income. Bars represent Expenses.
                Click on a bar to highlight that month in the table below.
             </p>
           </div>
@@ -349,6 +364,7 @@ const App: React.FC = () => {
             {/* Table wrapper handles its own header area now with grouping toggle */}
             <ExpenseTable 
               expenses={expenses} 
+              incomes={incomes}
               onEdit={handleEditExpense} 
               onDelete={handleDeleteExpense} 
               highlightedMonth={selectedMonthIndex}
@@ -357,7 +373,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modal */}
+      {/* Expense Form Modal */}
       {isFormOpen && (
         <ExpenseForm 
           initialData={editingExpense} 
@@ -368,6 +384,15 @@ const App: React.FC = () => {
             setIsFormOpen(false);
             setEditingExpense(null);
           }} 
+        />
+      )}
+
+      {/* Income Form Modal */}
+      {isIncomeModalOpen && (
+        <IncomeModal
+          currentIncomes={incomes}
+          onSave={handleSaveIncomes}
+          onClose={() => setIsIncomeModalOpen(false)}
         />
       )}
     </div>
