@@ -1,5 +1,5 @@
 import React from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, ReferenceLine, Label } from 'recharts';
 import { MonthlyData } from '../types';
 
 interface DashboardChartProps {
@@ -7,13 +7,15 @@ interface DashboardChartProps {
   isDarkMode: boolean;
   onMonthClick: (index: number) => void;
   selectedMonthIndex: number | null;
+  monthlyIncome: number;
 }
 
-export const DashboardChart: React.FC<DashboardChartProps> = ({ data, isDarkMode, onMonthClick, selectedMonthIndex }) => {
+export const DashboardChart: React.FC<DashboardChartProps> = ({ data, isDarkMode, onMonthClick, selectedMonthIndex, monthlyIncome }) => {
   const gridColor = isDarkMode ? '#334155' : '#e2e8f0';
   const textColor = isDarkMode ? '#94a3b8' : '#64748b';
   const tooltipBg = isDarkMode ? '#1e293b' : '#fff';
   const tooltipText = isDarkMode ? '#f1f5f9' : '#0f172a';
+  const incomeLineColor = isDarkMode ? '#34d399' : '#059669'; // Emerald-400 / Emerald-600
 
   return (
     <div className="h-64 w-full">
@@ -52,8 +54,20 @@ export const DashboardChart: React.FC<DashboardChartProps> = ({ data, isDarkMode
               color: tooltipText
             }}
             itemStyle={{ color: tooltipText }}
-            formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Total']}
+            formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Expenses']}
           />
+          {monthlyIncome > 0 && (
+            <ReferenceLine y={monthlyIncome} stroke={incomeLineColor} strokeDasharray="3 3" strokeWidth={2}>
+              <Label 
+                value="Income" 
+                position="insideTopRight" 
+                fill={incomeLineColor} 
+                fontSize={12} 
+                fontWeight={500}
+                offset={10}
+              />
+            </ReferenceLine>
+          )}
           <Bar 
             dataKey="total" 
             radius={[4, 4, 0, 0]} 

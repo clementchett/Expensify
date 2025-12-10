@@ -8,7 +8,7 @@ import { DashboardChart } from './components/DashboardChart';
 import { CategoryChart } from './components/CategoryChart';
 import { calculateMonthlyDistribution, formatCurrency, calculateTotalAnnual } from './services/expenseUtils';
 import { analyzeExpenses } from './services/geminiService';
-import { Plus, Wallet, TrendingUp, Sparkles, Loader2, Moon, Sun, Info } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, Sparkles, Loader2, Moon, Sun, Info, PiggyBank, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -25,6 +25,14 @@ const App: React.FC = () => {
       return saved ? JSON.parse(saved) : [];
     }
     return [];
+  });
+
+  // Monthly Income State
+  const [monthlyIncome, setMonthlyIncome] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('monthlyIncome') || '';
+    }
+    return '';
   });
 
   const allCategories = useMemo(() => {
@@ -58,6 +66,11 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('customCategories', JSON.stringify(customCategories));
   }, [customCategories]);
+
+  // Save monthly income
+  useEffect(() => {
+    localStorage.setItem('monthlyIncome', monthlyIncome);
+  }, [monthlyIncome]);
 
   // Load from LocalStorage and Migrate Data if needed
   useEffect(() => {
@@ -142,7 +155,10 @@ const App: React.FC = () => {
   }, [expenses]);
 
   const totalAnnual = useMemo(() => monthlyData.reduce((acc, curr) => acc + curr.total, 0), [monthlyData]);
-  const averageMonthly = useMemo(() => totalAnnual / 12, [totalAnnual]);
+  const parsedIncome = parseFloat(monthlyIncome) || 0;
+  const annualIncome = parsedIncome * 12;
+  const annualBalance = annualIncome - totalAnnual;
+  const savingsRate = annualIncome > 0 ? ((annualBalance / annualIncome) * 100) : 0;
 
   // Calculate Category Data
   const categoryData = useMemo(() => {
@@ -198,53 +214,85 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-xl">
-                <TrendingUp className="text-green-600 dark:text-green-400 h-6 w-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+           {/* Income Input Card */}
+           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200 flex flex-col justify-between">
+             <div className="flex items-start justify-between mb-2">
+                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl">
+                  <ArrowUpCircle className="text-emerald-600 dark:text-emerald-400 h-6 w-6" />
+                </div>
+                <span className="text-xs font-medium px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-md">
+                   Annual: {formatCurrency(annualIncome)}
+                </span>
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Monthly Income</label>
+               <div className="relative">
+                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-medium">₹</span>
+                 <input 
+                   type="number"
+                   value={monthlyIncome}
+                   onChange={(e) => setMonthlyIncome(e.target.value)}
+                   className="w-full pl-8 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-lg font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                   placeholder="0"
+                 />
+               </div>
+             </div>
+           </div>
+
+          {/* Expenses Card */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200 flex flex-col justify-between">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-xl">
+                <ArrowDownCircle className="text-red-600 dark:text-red-400 h-6 w-6" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Annual Budget</p>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalAnnual)}</h3>
-              </div>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Annual Expenses</p>
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalAnnual)}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Avg. {formatCurrency(totalAnnual/12)} / month</p>
             </div>
           </div>
           
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200">
-             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
-                <Wallet className="text-blue-600 dark:text-blue-400 h-6 w-6" />
+          {/* Balance Card */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-200 flex flex-col justify-between">
+             <div className="flex items-center gap-4 mb-4">
+              <div className={`p-3 rounded-xl ${annualBalance >= 0 ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-orange-50 dark:bg-orange-900/30'}`}>
+                <PiggyBank className={`h-6 w-6 ${annualBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`} />
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Average Monthly</p>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(averageMonthly)}</h3>
-              </div>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Net Annual Balance</p>
+            </div>
+            <div>
+              <h3 className={`text-2xl font-bold ${annualBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                {annualBalance >= 0 ? '+' : ''}{formatCurrency(annualBalance)}
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                 {parsedIncome > 0 ? `${savingsRate.toFixed(1)}% savings rate` : 'Set income to calculate savings'}
+              </p>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden group">
+          {/* AI Insights Card */}
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden group flex flex-col justify-between">
              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Sparkles size={64} />
              </div>
-             <div className="relative z-10 h-full flex flex-col justify-between">
-               <div>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Sparkles size={18} /> AI Insights
-                  </h3>
-                  <p className="text-indigo-100 text-sm mt-1">
-                    Get smart analysis of your spending habits.
-                  </p>
-               </div>
-               <button 
-                 onClick={handleAIAnalysis}
-                 disabled={isAnalyzing || expenses.length === 0}
-                 className="mt-4 w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-               >
-                 {isAnalyzing ? <Loader2 className="animate-spin h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                 {isAnalyzing ? 'Analyzing...' : 'Analyze Budget'}
-               </button>
+             <div className="relative z-10">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Sparkles size={18} /> AI Insights
+                </h3>
+                <p className="text-indigo-100 text-sm mt-1">
+                  Get smart analysis of your spending habits.
+                </p>
              </div>
+             <button 
+               onClick={handleAIAnalysis}
+               disabled={isAnalyzing || expenses.length === 0}
+               className="mt-4 w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+               {isAnalyzing ? <Loader2 className="animate-spin h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+               {isAnalyzing ? 'Analyzing...' : 'Analyze Budget'}
+             </button>
           </div>
         </div>
 
@@ -278,8 +326,12 @@ const App: React.FC = () => {
               isDarkMode={isDarkMode} 
               onMonthClick={handleMonthClick}
               selectedMonthIndex={selectedMonthIndex}
+              monthlyIncome={parsedIncome}
             />
-            <p className="text-xs text-center text-slate-400 mt-4">Click on a bar to highlight that month in the table below.</p>
+            <p className="text-xs text-center text-slate-400 mt-4">
+               {parsedIncome > 0 ? 'Dashed line indicates monthly income limit. ' : ''}
+               Click on a bar to highlight that month in the table below.
+            </p>
           </div>
 
           {/* Category Pie Chart */}
