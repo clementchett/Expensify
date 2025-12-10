@@ -18,6 +18,20 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number | null>(null);
   
+  // Custom Categories State
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('customCategories');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  const allCategories = useMemo(() => {
+    // Combine default and custom categories, ensuring uniqueness
+    return Array.from(new Set([...CATEGORIES, ...customCategories]));
+  }, [customCategories]);
+
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -39,6 +53,11 @@ const App: React.FC = () => {
   }, [isDarkMode]);
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
+
+  // Save custom categories
+  useEffect(() => {
+    localStorage.setItem('customCategories', JSON.stringify(customCategories));
+  }, [customCategories]);
 
   // Load from LocalStorage and Migrate Data if needed
   useEffect(() => {
@@ -84,6 +103,12 @@ const App: React.FC = () => {
   const handleEditExpense = (expense: Expense) => {
     setEditingExpense(expense);
     setIsFormOpen(true);
+  };
+
+  const handleAddCategory = (newCategory: string) => {
+    if (!allCategories.includes(newCategory)) {
+      setCustomCategories([...customCategories, newCategory]);
+    }
   };
 
   const handleAIAnalysis = async () => {
@@ -269,12 +294,7 @@ const App: React.FC = () => {
         {/* Table Area */}
         <div className="space-y-6">
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden transition-colors duration-200">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Expense Breakdown</h3>
-              <span className="text-sm text-slate-500 dark:text-slate-400 font-medium bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">
-                {expenses.length} Item{expenses.length !== 1 && 's'}
-              </span>
-            </div>
+            {/* Table wrapper handles its own header area now with grouping toggle */}
             <ExpenseTable 
               expenses={expenses} 
               onEdit={handleEditExpense} 
@@ -289,6 +309,8 @@ const App: React.FC = () => {
       {isFormOpen && (
         <ExpenseForm 
           initialData={editingExpense} 
+          categories={allCategories}
+          onAddCategory={handleAddCategory}
           onSave={handleSaveExpense} 
           onCancel={() => {
             setIsFormOpen(false);

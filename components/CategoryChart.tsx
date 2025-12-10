@@ -25,6 +25,10 @@ export const CategoryChart: React.FC<CategoryChartProps> = ({ data, isDarkMode }
       );
   }
 
+  const renderLabel = ({ percent }: { percent: number }) => {
+     return `${(percent * 100).toFixed(0)}%`;
+  };
+
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -33,10 +37,12 @@ export const CategoryChart: React.FC<CategoryChartProps> = ({ data, isDarkMode }
             data={data}
             cx="50%"
             cy="50%"
-            innerRadius={60}
+            innerRadius={50}
             outerRadius={80}
             paddingAngle={2}
             dataKey="value"
+            label={renderLabel}
+            labelLine={{ stroke: isDarkMode ? '#475569' : '#cbd5e1' }}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
@@ -51,7 +57,11 @@ export const CategoryChart: React.FC<CategoryChartProps> = ({ data, isDarkMode }
               color: tooltipText
             }}
             itemStyle={{ color: tooltipText }}
-            formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Total']}
+            formatter={(value: number, name: string, props: any) => {
+                const total = data.reduce((a, b) => a + b.value, 0);
+                const percent = (value / total) * 100;
+                return [`₹${value.toLocaleString()} (${percent.toFixed(1)}%)`, name];
+            }}
           />
           <Legend 
             verticalAlign="bottom" 
